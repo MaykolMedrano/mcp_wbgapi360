@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="wbgapi360",
-    version="0.2.1",
+    version="0.2.2",
     description="Enterprise-grade Async Python Client for World Bank Data360 API",
     long_description=open("README.md").read() if open("README.md") else "Official client for WBG Data360",
     long_description_content_type="text/markdown",

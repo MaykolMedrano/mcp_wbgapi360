@@ -10,7 +10,9 @@ from typing import List, Dict, Any, Union, Optional
 from wbgapi360.core.client import Data360Client
 from wbgapi360.search.engine import SearchEngine
 from wbgapi360.data.builder import DataBuilder
-from wbgapi360.visual.charts import Visualizer
+from wbgapi360.data.builder import DataBuilder
+# from wbgapi360.visual.charts import Visualizer # LAZY LOADED
+from wbgapi360.core.utils import normalize_codes, resolve_economies
 from wbgapi360.core.utils import normalize_codes, resolve_economies
 from wbgapi360.core.transformers import DataStandardizer
 from wbgapi360.core.auditor import DataAuditor
@@ -21,7 +23,9 @@ logger.addHandler(logging.NullHandler())
 
 # Singletons for Sync API
 # _client = Data360Client() -> PREVIOUSLY GLOBAL, NOW INSTANTIATED PER CALL TO FIX ASYNCIO LIFECYCLE
-_viz = Visualizer()
+# Singletons for Sync API
+# _client = Data360Client() -> PREVIOUSLY GLOBAL, NOW INSTANTIATED PER CALL TO FIX ASYNCIO LIFECYCLE
+# _viz = Visualizer() -> NOW LAZY LOADED
 
 def _run_sync(coro):
     """
@@ -40,6 +44,8 @@ def _run_sync(coro):
         return loop.run_until_complete(coro)
     else:
         return asyncio.run(coro)
+
+# --- INTERNAL ASYNC LOGIC (Replicated from server to decouple) ---
 
 # --- INTERNAL ASYNC LOGIC (Replicated from server to decouple) ---
 
@@ -192,6 +198,23 @@ def get_data(
         
     return df
 
+# Helper for lazy loading visualization
+_viz_instance = None
+def _get_viz():
+    global _viz_instance
+    if _viz_instance is None:
+        try:
+            from wbgapi360.visual.charts import Visualizer
+            _viz_instance = Visualizer()
+        except ImportError as e:
+            if "seaborn" in str(e) or "matplotlib" in str(e):
+                raise ImportError(
+                    "Optional dependency 'seaborn' or 'matplotlib' not found. "
+                    "Please install with: pip install wbgapi360[visual]"
+                ) from e
+            raise e
+    return _viz_instance
+
 def plot(chart_type: str, data: Union[str, pd.DataFrame], title: str = "", subtitle: str = "", **kwargs) -> str:
     """
     Generate Financial Times-style chart with editorial aesthetics.
@@ -209,26 +232,29 @@ def plot(chart_type: str, data: Union[str, pd.DataFrame], title: str = "", subti
     """
     logger.info(f"Plotting chart type: {chart_type}")
     
+    # Lazy load visualizer
+    viz = _get_viz()
+    
     # Logic adapted for local dispatch
     dispatch_table = {
-        'trend': _viz.plot_trend,
-        'line': _viz.plot_trend,
-        'bar': _viz.plot_bar,
-        'column': _viz.plot_column,
-        'scatter': _viz.plot_scatter,
-        'map': _viz.plot_map,
-        'map_bubble': _viz.plot_map_bubble,
-        'map_diverging': _viz.plot_map_diverging,
-        'map_categorical': _viz.plot_map_categorical,
-        'dumbbell': _viz.plot_dumbbell,
-        'stacked': _viz.plot_stacked_bar,
-        'stacked_bar': _viz.plot_stacked_bar,
-        'area': _viz.plot_area,
-        'heatmap': _viz.plot_heatmap,
-        'bump': _viz.plot_bump,
-        'treemap': _viz.plot_treemap,
-        'donut': _viz.plot_donut,
-        'pie': _viz.plot_donut
+        'trend': viz.plot_trend,
+        'line': viz.plot_trend,
+        'bar': viz.plot_bar,
+        'column': viz.plot_column,
+        'scatter': viz.plot_scatter,
+        'map': viz.plot_map,
+        'map_bubble': viz.plot_map_bubble,
+        'map_diverging': viz.plot_map_diverging,
+        'map_categorical': viz.plot_map_categorical,
+        'dumbbell': viz.plot_dumbbell,
+        'stacked': viz.plot_stacked_bar,
+        'stacked_bar': viz.plot_stacked_bar,
+        'area': viz.plot_area,
+        'heatmap': viz.plot_heatmap,
+        'bump': viz.plot_bump,
+        'treemap': viz.plot_treemap,
+        'donut': viz.plot_donut,
+        'pie': viz.plot_donut
     }
     
     func = dispatch_table.get(chart_type)

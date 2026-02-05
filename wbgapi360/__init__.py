@@ -3,7 +3,8 @@ from .search.engine import SearchEngine
 from .data.builder import DataBuilder
 from .ai.agent import DataAgent
 from .metadata.builder import MetadataBuilder
-from .visual import viz
+from .metadata.builder import MetadataBuilder
+# from .visual import viz # LAZY LOADED
 
 
 class API:
@@ -34,13 +35,22 @@ class API:
 
     @property
     def visual(self):
-        return viz
+        try:
+            from .visual import viz
+            return viz
+        except ImportError as e:
+            if "seaborn" in str(e) or "matplotlib" in str(e):
+                 raise ImportError(
+                    "Optional dependency 'seaborn' not found. "
+                    "Install with: pip install wbgapi360[visual]"
+                ) from e
+            raise e
         
     async def close(self):
         if self._client:
             await self._client.close()
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 __author__ = "Maykol Medrano"
 __email__ = "mmedrano2@uc.cl"
 __credits__ = ["Applied Economist Policy Data Scientist"]

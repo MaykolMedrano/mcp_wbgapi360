@@ -30,18 +30,22 @@ We acknowledge and thank Tim for establishing the developer-friendly patterns th
 
 ## Installation
 
-The library is available on PyPI.
+Install using pip:
 
 ```bash
-# Core installation (Lightweight)
 pip install wbgapi360
+```
 
+**For Visualization Features (Plots & Maps):**
+The visualization module is optional to keep the library lightweight. To use `wb.plot()`, install with extras:
+```bash
+pip install "wbgapi360[visual]"
+```
 # With Visualization support (adds Matplotlib/Seaborn)
 pip install wbgapi360[visual]
 
 # With Mapping support (adds GeoPandas - Heavy dependency)
 pip install wbgapi360[map]
-```
 
 ---
 
@@ -60,29 +64,36 @@ results = wb.search("inflation") # Returns top 10 matches
 
 for r in results[:3]:
     print(f"[{r['code']}] {r['name']}")
-    # Output:
-    # [FP.CPI.TOTL.ZG] Inflation, consumer prices (annual %)
-    # [FP.CPI.TOTL] Consumer price index (2010 = 100)
-    # [NY.GDP.DEFL.KD.ZG] Inflation, GDP deflator (annual %)
-```
-
-### 2. Robust Data Retrieval
-Fetch data with automatic ID correction and intelligent time window handling.
-
-```python
-# Fetch GDP Growth for USA, China, and Peru (Last 10 years)
+# 1. Fetch GDP Growth (Last 10 years)
 df = wb.get_data(
-    indicator="NY.GDP.MKTP.KD.ZG", 
+    indicator="NY.GDP.MKTP.KD.ZG",
     economies=["USA", "CHN", "PER"],
-    years=10,
-    labels=True,      # Adds 'Country Name' column
-    as_frame=True     # Returns pandas DataFrame instead of JSON
+    years=10
 )
-
 print(df.head())
+
+# 2. Fetch FDI Data (Last 20 years)
+fdi_df = wb.get_data(
+    indicator="BX.KLT.DINV.CD.WD",
+    economies=["CHL", "USA", "CHN"],
+    years=20
+)
+print("Foreign Direct Investment Data:")
+print(fdi_df.head())
+
+# 3. Plot Trend (Financial Times Style)
+# Requires: pip install wbgapi360[visual]
+data = wb.get_data("NY.GDP.PCAP.CD", ["CHL", "PER", "COL", "MEX"], years=15)
+
+wb.plot(
+    chart_type="trend",
+    data=data,
+    title="GDP Per Capita Trend",
+    subtitle="USD Current"
+)
 ```
 
-### 3. Advanced Analysis: Trends & Statistics
+### 4. Advanced Analysis: Trends & Statistics
 Quickly assess the economic trajectory of a country without writing boilerplate pandas code.
 
 ```python
