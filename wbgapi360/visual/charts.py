@@ -4,7 +4,12 @@ import matplotlib.ticker as ticker
 import pandas as pd
 import warnings
 import numpy as np
-from typing import Optional
+from typing import Optional, Tuple
+
+# Default figure sizes (optimized for Colab/Notebooks)
+DEFAULT_FIGSIZE = (8, 5)
+DEFAULT_FIGSIZE_MAP = (12, 7)
+DEFAULT_FIGSIZE_SMALL = (6, 4)
 
 # FT Color Variables
 FT_BACKGROUND = "#FFFFFF"
@@ -183,7 +188,7 @@ class Visualizer:
             
         return df
 
-    def plot_trend(self, df, title="", subtitle="", save_path=None):
+    def plot_trend(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Líneas con Jerarquía Visual (Protagonista vs Secundarias)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
@@ -215,7 +220,7 @@ class Visualizer:
                                  var_name='INDICATOR', value_name='OBS_VALUE')
                     df = df.rename(columns={t_col: 'TIME_PERIOD'})
                     
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         hue_col = 'REF_AREA'
         if 'REF_AREA' in df.columns and df['REF_AREA'].nunique() == 1 and 'INDICATOR' in df.columns:
@@ -294,11 +299,8 @@ class Visualizer:
                 weight='bold'
             )
  
-        # Labels & Titles
-        ax.set_title(title, loc='left', fontsize=16, weight='bold', color=FT_TITLE_COLOR)
-        if subtitle:
-            ax.text(x=0, y=1.02, s=subtitle, transform=ax.transAxes, fontsize=12, color=FT_SUBTITLE_COLOR)
-            
+        # Labels & Axis
+        # Note: Title/subtitle handled by _finalize_chart to avoid duplication
         if ax2:
             ax.set_ylabel("Macro Scale (e.g. Billions)", color=FT_AXIS_COLOR)
             ax2.set_ylabel("Micro Scale (e.g. %)", color=FT_AXIS_COLOR)
@@ -309,10 +311,11 @@ class Visualizer:
             
         return self._finalize_chart(fig, ax, title, subtitle, save_path=save_path)
 
-    def plot_bar(self, df, title="", subtitle="", save_path=None):
+
+    def plot_bar(self, df, title="", subtitle="", save_path=None, figsize=None):
         self._apply_theme_context()
         df, val_label = self._prepare_data(df, auto_rename=True)
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=figsize or (8, 6))
         
         df_sorted = df.sort_values('OBS_VALUE', ascending=False)
         
@@ -335,10 +338,10 @@ class Visualizer:
         self._format_axis(ax, 'x')
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_column(self, df, title="", subtitle="", save_path=None):
+    def plot_column(self, df, title="", subtitle="", save_path=None, figsize=None):
         self._apply_theme_context()
         df, val_label = self._prepare_data(df, auto_rename=True)
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         sns.barplot(
             data=df, x='REF_AREA', y='OBS_VALUE',
@@ -352,10 +355,10 @@ class Visualizer:
         self._format_axis(ax, 'y')
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_scatter(self, df, title="", subtitle="", save_path=None):
+    def plot_scatter(self, df, title="", subtitle="", save_path=None, figsize=None):
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         cols = [c for c in numeric_cols if c != 'TIME_PERIOD']
@@ -376,7 +379,7 @@ class Visualizer:
 
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_dumbbell(self, df, title="", subtitle="", save_path=None):
+    def plot_dumbbell(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Dumbbell (Comparación entre dos puntos)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
@@ -432,7 +435,7 @@ class Visualizer:
         
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_stacked(self, df, title="", subtitle="", save_path=None):
+    def plot_stacked(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Área/Barra Apilada (Composición)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
@@ -445,7 +448,7 @@ class Visualizer:
         df_wide = df.pivot_table(index='TIME_PERIOD', columns='REF_AREA', values='OBS_VALUE', aggfunc='sum')
         df_wide = df_wide.fillna(0)
         
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         # Clean Palette for stack
         # FT uses muted colors for composition.
@@ -466,7 +469,7 @@ class Visualizer:
         
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_map(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', title="", subtitle="", region=None, bbox=None, save_path=None):
+    def plot_map(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', title="", subtitle="", region=None, bbox=None, save_path=None, figsize=None):
         try:
             import geopandas as gpd
             with warnings.catch_warnings():
@@ -529,7 +532,7 @@ class Visualizer:
         
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='left')
 
-        fig, ax = plt.subplots(figsize=(14, 8))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
         
         # Base world map (light neutral background)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
@@ -587,7 +590,7 @@ class Visualizer:
         is_regional = region is not None or bbox is not None
         self._finalize_chart(fig, ax, title, subtitle, save_path, is_regional_map=is_regional)
 
-    def plot_map_bubble(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', title="", subtitle="", region=None, bbox=None, save_path=None):
+    def plot_map_bubble(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', title="", subtitle="", region=None, bbox=None, save_path=None, figsize=None):
         """Bubble Map: Proportional circles over country centroids."""
         try:
             import geopandas as gpd
@@ -629,7 +632,7 @@ class Visualizer:
         iso_world_col = 'ISO_A3' if 'ISO_A3' in world.columns else 'iso_a3'
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='inner')
         
-        fig, ax = plt.subplots(figsize=(14, 8))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
         
         if not world_data.empty:
@@ -651,12 +654,12 @@ class Visualizer:
         ax.set_axis_off()
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_heatmap(self, df, title="", subtitle="", save_path=None):
+    def plot_heatmap(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Mapa de Calor (Correlación/Densidad)."""
         self._apply_theme_context()
         df = self._ensure_tidy(df)
 
-    def plot_map_diverging(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', center=None, title="", subtitle="", region=None, bbox=None, save_path=None):
+    def plot_map_diverging(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', center=None, title="", subtitle="", region=None, bbox=None, save_path=None, figsize=None):
         """Diverging Map: Red-White-Blue for positive/negative values."""
         try:
             import geopandas as gpd
@@ -697,7 +700,7 @@ class Visualizer:
         iso_world_col = 'ISO_A3' if 'ISO_A3' in world.columns else 'iso_a3'
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='left')
         
-        fig, ax = plt.subplots(figsize=(14, 8))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
         
         if not world_data.dropna(subset=[value_col]).empty:
@@ -742,7 +745,7 @@ class Visualizer:
         ax.set_axis_off()
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_map_categorical(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', bins=None, labels=None, title="", subtitle="", region=None, bbox=None, save_path=None):
+    def plot_map_categorical(self, df, iso_col='REF_AREA', value_col='OBS_VALUE', bins=None, labels=None, title="", subtitle="", region=None, bbox=None, save_path=None, figsize=None):
         """Categorical Map: Discrete color categories for classifications."""
         try:
             import geopandas as gpd
@@ -786,7 +789,7 @@ class Visualizer:
         iso_world_col = 'ISO_A3' if 'ISO_A3' in world.columns else 'iso_a3'
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='left')
         
-        fig, ax = plt.subplots(figsize=(14, 8))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
         
         if not world_data.dropna(subset=[value_col]).empty:
@@ -834,7 +837,7 @@ class Visualizer:
         ax.set_axis_off()
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_heatmap(self, df, title="", subtitle="", save_path=None):
+    def plot_heatmap(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Mapa de Calor (Correlación/Densidad)."""
         self._apply_theme_context()
         df = self._ensure_tidy(df)
@@ -874,7 +877,7 @@ class Visualizer:
             
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_stacked_bar(self, df, title="", subtitle="", save_path=None):
+    def plot_stacked_bar(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Columnas Apiladas (Composición)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
@@ -891,7 +894,7 @@ class Visualizer:
             # Handle duplicates
             df_pivot = df.pivot_table(index='TIME_PERIOD', columns='REF_AREA', values='OBS_VALUE', aggfunc='mean')
 
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         df_pivot.plot(kind='bar', stacked=True, ax=ax, width=0.8, color=FT_PALETTE, edgecolor='white', linewidth=0.5)
         
@@ -906,7 +909,7 @@ class Visualizer:
         
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_area(self, df, title="", subtitle="", save_path=None):
+    def plot_area(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Área Apilada (Evolución de Composición)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
@@ -920,7 +923,7 @@ class Visualizer:
         except ValueError:
             df_pivot = df.pivot_table(index='TIME_PERIOD', columns='REF_AREA', values='OBS_VALUE', aggfunc='mean')
 
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         df_pivot.plot(kind='area', stacked=True, ax=ax, alpha=0.9, color=FT_PALETTE, linewidth=0)
         
@@ -933,7 +936,7 @@ class Visualizer:
         
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_bump(self, df, title="", subtitle="", save_path=None):
+    def plot_bump(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Bump (Ranking Changes)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
@@ -953,7 +956,7 @@ class Visualizer:
         top_entities = df[df['TIME_PERIOD'] == latest_year].nsmallest(top_n, 'Rank')['REF_AREA'].unique()
         df_filtered = df[df['REF_AREA'].isin(top_entities)]
 
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         
         # Invert Y axis for Rank 1 at top
         ax.invert_yaxis()
@@ -976,7 +979,7 @@ class Visualizer:
         ax.set_xlabel("")
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_donut(self, df, title="", subtitle="", save_path=None):
+    def plot_donut(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico de Donas (Part-to-Whole)."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df, auto_rename=True)
@@ -987,7 +990,7 @@ class Visualizer:
         else:
             return
 
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=figsize or (6, 6))
         
         colors = [FT_BLUE, FT_GREEN, FT_MUSTARD, FT_RED, FT_PURPLE, FT_NEUTRAL_DARK, FT_NEUTRAL_LIGHT]
         
@@ -1004,7 +1007,7 @@ class Visualizer:
         
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
-    def plot_treemap(self, df, title="", subtitle="", save_path=None):
+    def plot_treemap(self, df, title="", subtitle="", save_path=None, figsize=None):
         """Gráfico Treemap (Jerarquía simple) - Dependency Free."""
         self._apply_theme_context()
         df, val_label = self._prepare_data(df, auto_rename=True)
@@ -1062,7 +1065,7 @@ class Visualizer:
 
         rects = recursive_split(normed, 0, 0, 100, 100)
         
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
         ax.set_xlim(0, 100)
         ax.set_ylim(0, 100)
         ax.set_axis_off()

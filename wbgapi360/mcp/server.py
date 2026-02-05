@@ -177,7 +177,7 @@ async def _compare_countries(
         economies: List of country codes
         indicators: Single indicator or list of indicators
         years: Years of historical data
-        normalize: If True, normalize values to 0-100 scale for comparison
+        normalize: If True, normalize values to base 100 (first year = 100)
     
     Returns:
         JSON with combined data suitable for multi-line charts
@@ -197,30 +197,68 @@ async def _compare_countries(
                 continue
                 
             if not data.empty:
-                # Add indicator name to differentiate
-                data['INDICATOR'] = indicator
-                all_data.append(data)
+                df = data.reset_index() if hasattr(data, 'reset_index') else data
+                
+                # Identify year columns
+                year_cols = [c for c in df.columns if str(c).isdigit() and 1900 < int(c) < 2100]
+                year_cols.sort()
+                
+                if not year_cols:
+                    continue
+                
+                # Get REF_AREA column
+                ref_area_col = 'REF_AREA' if 'REF_AREA' in df.columns else df.columns[0]
+                
+                # For each economy, extract time series
+                for _, row in df.iterrows():
+                    economy = row.get(ref_area_col, 'Unknown')
+                    
+                    for year in year_cols:
+                        val = row.get(year)
+                        if pd.notna(val):
+                            try:
+                                numeric_val = float(val)
+                                all_data.append({
+                                    "economy": economy,
+                                    "indicator": indicator,
+                                    "year": int(year),
+                                    "value": numeric_val
+                                })
+                            except (ValueError, TypeError):
+                                continue
         
         if not all_data:
-            return "No data found for specified indicators and countries"
+            return json.dumps({"error": "No data found for specified indicators and countries"})
         
-        # Combine all dataframes
-        combined = pd.concat(all_data, ignore_index=True)
+        # Convert to DataFrame for normalization
+        combined = pd.DataFrame(all_data)
         
-        # Normalize if requested
+        # Normalize if requested (base 100)
         if normalize and not combined.empty:
-            value_col = combined.columns[0]  # Assuming first col is the value
-            # Normalize to 0-100 scale
-            min_val = combined[value_col].min()
-            max_val = combined[value_col].max()
-            if max_val > min_val:
-                combined[value_col] = ((combined[value_col] - min_val) / (max_val - min_val)) * 100
+            normalized_data = []
+            
+            for (economy, indicator), group in combined.groupby(['economy', 'indicator']):
+                group = group.sort_values('year')
+                if len(group) > 0:
+                    first_val = group['value'].iloc[0]
+                    if first_val != 0:
+                        for _, row in group.iterrows():
+                            normalized_data.append({
+                                "economy": row['economy'],
+                                "indicator": row['indicator'],
+                                "year": row['year'],
+                                "value": round((row['value'] / first_val) * 100, 2)
+                            })
+            
+            if normalized_data:
+                combined = pd.DataFrame(normalized_data)
         
-        return combined.to_json(orient='records')
+        return json.dumps({"data": combined.to_dict('records')})
         
     except Exception as e:
         logger.error(f"Failed to compare countries", exc_info=True)
-        return f"Comparison Error: {str(e)}"
+        return json.dumps({"error": f"Comparison Error: {str(e)}"})
+
 
 async def _analyze_trend(
     indicator: str,
@@ -241,70 +279,82 @@ async def _analyze_trend(
         JSON with data and statistical insights
     """
     try:
-        # Fetch data
+        # Fetch data (wide format: years as columns)
         data = await _get_data(indicator, [economy], years, as_frame=True)
         
         if isinstance(data, str) or data.empty:
-            return "No data available for analysis"
+            return json.dumps({"error": "No data available for analysis"})
         
-        # Reset index to get TIME_PERIOD as column
-        df = data.reset_index()
+        df = data.reset_index() if hasattr(data, 'reset_index') else data
         
-        # Get value column (first non-index column)
-        value_col = [c for c in df.columns if c not in ['TIME_PERIOD', 'REF_AREA']][0]
+        # Identify year columns (numeric column names that look like years)
+        year_cols = [c for c in df.columns if str(c).isdigit() and 1900 < int(c) < 2100]
+        year_cols.sort()
         
-        # Basic stats
+        if not year_cols:
+            return json.dumps({"error": "No year columns found in data", "columns": list(df.columns)})
+        
+        # Extract values for the single economy (should be one row)
+        if len(df) == 0:
+            return json.dumps({"error": "No data rows found"})
+        
+        row = df.iloc[0]
+        values = pd.Series({y: row[y] for y in year_cols if pd.notna(row.get(y))})
+        values = pd.to_numeric(values, errors='coerce').dropna()
+        
+        # Build result
         result = {
             "data": df.to_dict('records'),
             "meta": {
                 "indicator": indicator,
                 "economy": economy,
-                "years_analyzed": len(df)
+                "years_analyzed": len(values),
+                "year_range": f"{min(year_cols)}-{max(year_cols)}"
             }
         }
         
-        if include_stats and len(df) > 1:
-            values = df[value_col].dropna()
+        if include_stats and len(values) >= 2:
+            first_val = float(values.iloc[0])
+            last_val = float(values.iloc[-1])
             
-            if len(values) >= 2:
-                # Calculate growth rates
-                first_val = values.iloc[0]
-                last_val = values.iloc[-1]
-                
-                if first_val != 0:
-                    total_growth = ((last_val - first_val) / abs(first_val)) * 100
-                    avg_annual_growth = total_growth / len(values)
-                else:
-                    total_growth = 0
-                    avg_annual_growth = 0
-                
-                # Calculate volatility (std dev)
-                volatility = values.std()
-                
-                # Trend direction
-                if avg_annual_growth > 1:
-                    trend = "increasing"
-                elif avg_annual_growth < -1:
-                    trend = "decreasing"
-                else:
-                    trend = "stable"
-                
-                result["statistics"] = {
-                    "average_value": float(values.mean()),
-                    "min_value": float(values.min()),
-                    "max_value": float(values.max()),
-                    "total_growth_pct": round(total_growth, 2),
-                    "avg_annual_growth_pct": round(avg_annual_growth, 2),
-                    "volatility": round(volatility, 2),
-                    "trend_direction": trend,
-                    "latest_value": float(last_val)
-                }
+            # Calculate stats
+            if first_val != 0:
+                total_growth = ((last_val - first_val) / abs(first_val)) * 100
+                n_years = len(values)
+                cagr = ((last_val / first_val) ** (1 / n_years) - 1) * 100 if first_val > 0 and last_val > 0 else 0
+            else:
+                total_growth = 0
+                cagr = 0
+            
+            volatility = float(values.std())
+            mean_val = float(values.mean())
+            
+            # Trend direction
+            if cagr > 1:
+                trend = "increasing"
+            elif cagr < -1:
+                trend = "decreasing"
+            else:
+                trend = "stable"
+            
+            result["statistics"] = {
+                "mean": round(mean_val, 2),
+                "min": round(float(values.min()), 2),
+                "max": round(float(values.max()), 2),
+                "std": round(volatility, 2),
+                "total_growth": round(total_growth, 2),
+                "cagr": round(cagr, 2),
+                "trend": trend,
+                "first_value": round(first_val, 2),
+                "last_value": round(last_val, 2)
+            }
         
         return json.dumps(result)
         
     except Exception as e:
         logger.error(f"Failed to analyze trend", exc_info=True)
-        return f"Analysis Error: {str(e)}"
+        return json.dumps({"error": f"Analysis Error: {str(e)}"})
+
 
 async def _rank_countries(
     indicator: str,
@@ -350,37 +400,59 @@ async def _rank_countries(
                         'IRL', 'SGP', 'ZAF', 'HKG', 'DNK', 'PHL', 'MYS', 'COL', 'PAK', 'CHL',
                         'FIN', 'VNM', 'BGD', 'EGY', 'PER', 'CZE', 'PRT', 'GRC', 'NZL', 'ROM']
         
-        # Fetch data (1 year for ranking)
-        years_to_fetch = 1 if year is None else 1
-        data = await _get_data(indicator, economies, years=years_to_fetch, as_frame=True, labels=True)
+        # Fetch data (1 year for ranking - MRV mode)
+        data = await _get_data(indicator, economies, years=1, as_frame=True, labels=False)
         
         if isinstance(data, str) or data.empty:
-            return "No data available for ranking"
+            return json.dumps({"error": "No data available for ranking"})
         
-        df = data.reset_index()
+        df = data.reset_index() if hasattr(data, 'reset_index') else data
         
-        # Get value column
-        value_col = [c for c in df.columns if c not in ['TIME_PERIOD', 'REF_AREA']][0]
+        # Find year columns (wide format)
+        year_cols = [c for c in df.columns if str(c).isdigit() and 1900 < int(c) < 2100]
         
-        # Sort by value (descending)
+        if not year_cols:
+            # Try to find numeric value columns (MRV mode returns single year column)
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            year_cols = [c for c in numeric_cols if c not in ['index', 'level_0']]
+        
+        if not year_cols:
+            return json.dumps({"error": "No value columns found", "columns": list(df.columns)})
+        
+        # Use the most recent year column
+        year_cols.sort()
+        value_col = year_cols[-1]
+        
+        # Ensure REF_AREA column exists
+        ref_area_col = 'REF_AREA' if 'REF_AREA' in df.columns else df.columns[0]
+        
+        # Convert value column to numeric and drop NaN
+        df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+        df = df.dropna(subset=[value_col])
+        
+        # Sort by value (descending) and take top_n
         df_sorted = df.sort_values(value_col, ascending=False).head(top_n)
         
-        # Add rank
-        df_sorted['rank'] = range(1, len(df_sorted) + 1)
-        
-        # Select relevant columns
-        result = df_sorted[['rank', 'REF_AREA', value_col]].to_dict('records')
+        # Build ranking list with consistent keys
+        ranking = []
+        for i, (_, row) in enumerate(df_sorted.iterrows(), 1):
+            ranking.append({
+                "rank": i,
+                "economy": row[ref_area_col],
+                "value": round(float(row[value_col]), 2)
+            })
         
         return json.dumps({
             "indicator": indicator,
             "region": region or "global",
-            "year": year or "latest",
-            "rankings": result
+            "year": str(value_col),
+            "ranking": ranking
         })
         
     except Exception as e:
         logger.error(f"Failed to rank countries", exc_info=True)
-        return f"Ranking Error: {str(e)}"
+        return json.dumps({"error": f"Ranking Error: {str(e)}"})
+
 
 def _plot_chart(chart_type: str, data: Union[str, pd.DataFrame], title: str = "Chart", subtitle: str = "", **kwargs) -> str:
     """
