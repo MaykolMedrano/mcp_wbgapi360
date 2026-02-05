@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=45", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "wbgapi360"
-version = "0.2.8"
-description = "Enterprise-grade Async Python Client for World Bank Data360 API"
+dynamic = ["version"]
+description = "Enterprise-grade World Bank Data Client for Humans & AI (MCP)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -37,3 +37,12 @@ dev = ["pytest", "pytest-asyncio"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["wbgapi360*"]
+
+[tool.setuptools_scm]
+write_to = "wbgapi360/_version.py"
+version_scheme = "release-branch-semver"
+local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

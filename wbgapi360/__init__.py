@@ -50,7 +50,12 @@ class API:
         if self._client:
             await self._client.close()
 
-__version__ = "0.2.8"
+# Dynamic version from setuptools-scm
+try:
+    from ._version import version as __version__
+except ImportError:
+    __version__ = "0.0.0.dev0"  # Fallback for editable installs
+
 __author__ = "Maykol Medrano"
 __email__ = "mmedrano2@uc.cl"
 __credits__ = ["Applied Economist Policy Data Scientist"]

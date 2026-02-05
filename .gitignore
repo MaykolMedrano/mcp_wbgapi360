@@ -1,10 +1,9 @@
-
-# Byte-compiled / optimized / DLL files
 # Build artifacts
 dist/
 build/
 *.egg-info/
 wbgapi360.egg-info/
+wbgapi360/_version.py
 __pycache__/
 *.pyc
 
