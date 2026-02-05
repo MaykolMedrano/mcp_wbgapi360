@@ -3,7 +3,7 @@
 [![PyPI version](https://img.shields.io/badge/pypi-v0.2.1-0052CC.svg)](https://pypi.org/project/wbgapi360/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/mmedrano2/mcp_wbgapi360/actions/workflows/ci.yml/badge.svg)](https://github.com/mmedrano2/mcp_wbgapi360/actions)
+[![Build Status](https://github.com/MaykolMedrano/mcp_wbgapi360/actions/workflows/ci.yml/badge.svg)](https://github.com/MaykolMedrano/mcp_wbgapi360/actions)
 [![Status](https://img.shields.io/badge/status-enterprise%20ready-green)]()
 
 **wbgapi360** is a high-performance Python client designed to interact with the World Bank's Data APIs. It bridges the gap between traditional econometric analysis and modern Artificial Intelligence workflows.
