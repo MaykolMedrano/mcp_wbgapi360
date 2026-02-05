@@ -46,8 +46,38 @@ REGION_BBOX = {
 }
 
 class Visualizer:
+    # Reference figsize for default font sizes (FT standard)
+    REF_FIGSIZE = (10, 6)
+    REF_FONTS = {
+        'title': 18,
+        'subtitle': 12,
+        'axis_label': 10,
+        'tick': 9,
+        'source': 8,
+        'legend': 9,
+        'annotation': 9
+    }
+    
     def __init__(self):
-        pass
+        self._current_figsize = self.REF_FIGSIZE
+    
+    def _get_scaled_fonts(self, figsize=None):
+        """Calculate font sizes scaled proportionally to figsize."""
+        fs = figsize or self._current_figsize
+        # Scale factor based on width (primary driver of text readability)
+        scale = fs[0] / self.REF_FIGSIZE[0]
+        # Clamp scale between 0.6 and 1.2 to avoid extreme sizes
+        scale = max(0.6, min(1.2, scale))
+        
+        return {
+            'title': int(self.REF_FONTS['title'] * scale),
+            'subtitle': int(self.REF_FONTS['subtitle'] * scale),
+            'axis_label': int(self.REF_FONTS['axis_label'] * scale),
+            'tick': int(self.REF_FONTS['tick'] * scale),
+            'source': int(self.REF_FONTS['source'] * scale),
+            'legend': int(self.REF_FONTS['legend'] * scale),
+            'annotation': int(self.REF_FONTS['annotation'] * scale)
+        }
 
     def _apply_theme_context(self):
         """Configura el estilo FT explícitamente."""
@@ -103,19 +133,26 @@ class Visualizer:
             ax.xaxis.set_major_formatter(ticker.FuncFormatter(ft_formatter))
 
     def _finalize_chart(self, fig, ax, title, subtitle, save_path, source="World Bank Data360", is_regional_map=False):
-        # Main title (Serif, Dark, 18-22pt)
+        # Get scaled font sizes based on current figsize
+        fonts = self._get_scaled_fonts()
+        
+        # Main title (Serif, Dark, scaled)
         ax.text(x=0, y=1.15, s=title, transform=ax.transAxes, 
-                fontsize=20, weight='semibold', color=FT_TITLE_COLOR, ha='left',
+                fontsize=fonts['title'], weight='semibold', color=FT_TITLE_COLOR, ha='left',
                 fontfamily='serif')
         
-        # Subtitle (Sans, Medium grey, 13-15pt)
+        # Subtitle (Sans, Medium grey, scaled)
         if subtitle:
             ax.text(x=0, y=1.06, s=subtitle, transform=ax.transAxes, 
-                    fontsize=14, color=FT_SUBTITLE_COLOR, ha='left')
+                    fontsize=fonts['subtitle'], color=FT_SUBTITLE_COLOR, ha='left')
 
         # Source note
         plt.figtext(0.05, 0.01, f"Source: {source}", 
-                    fontsize=9, color=FT_SOURCE_COLOR, ha='left', va='bottom')
+                    fontsize=fonts['source'], color=FT_SOURCE_COLOR, ha='left', va='bottom')
+        
+        # Scale tick labels
+        ax.tick_params(axis='both', labelsize=fonts['tick'])
+
         
         # Adjust layout based on map type
         if is_regional_map:
@@ -220,7 +257,9 @@ class Visualizer:
                                  var_name='INDICATOR', value_name='OBS_VALUE')
                     df = df.rename(columns={t_col: 'TIME_PERIOD'})
                     
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         hue_col = 'REF_AREA'
         if 'REF_AREA' in df.columns and df['REF_AREA'].nunique() == 1 and 'INDICATOR' in df.columns:
@@ -311,25 +350,23 @@ class Visualizer:
             
         return self._finalize_chart(fig, ax, title, subtitle, save_path=save_path)
 
-
     def plot_bar(self, df, title="", subtitle="", save_path=None, figsize=None):
         self._apply_theme_context()
         df, val_label = self._prepare_data(df, auto_rename=True)
-        fig, ax = plt.subplots(figsize=figsize or (8, 6))
+        actual_figsize = figsize or (8, 6)
+        self._current_figsize = actual_figsize  # Store for font scaling
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         df_sorted = df.sort_values('OBS_VALUE', ascending=False)
-        
-        # Color logic: One dominant category? Usually bars are same category compared.
-        # Use Main Blue for all, or Palette if 'hue' exists? 
-        # "Para múltiples categorías... paleta desaturada"
-        # We'll use color cycling if there is a 'category' column distinguishable?
-        # Usually barplot is 1 measure across countries. All same color (Blue or Petrol).
+        fonts = self._get_scaled_fonts()
         
         sns.barplot(
             data=df_sorted, x='OBS_VALUE', y='REF_AREA',
             color=FT_BLUE, ax=ax, edgecolor=None 
-            # Note: Using simple color=FT_BLUE for sobriety unless strictly multi-category variable
         )
+        
+        # Scale y-axis labels (country names)
+        ax.tick_params(axis='y', labelsize=fonts['axis_label'])
         
         ax.xaxis.grid(True, color=FT_GRID_COLOR) 
         ax.yaxis.grid(False)
@@ -338,10 +375,13 @@ class Visualizer:
         self._format_axis(ax, 'x')
         self._finalize_chart(fig, ax, title, subtitle, save_path)
 
+
     def plot_column(self, df, title="", subtitle="", save_path=None, figsize=None):
         self._apply_theme_context()
         df, val_label = self._prepare_data(df, auto_rename=True)
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         sns.barplot(
             data=df, x='REF_AREA', y='OBS_VALUE',
@@ -358,7 +398,9 @@ class Visualizer:
     def plot_scatter(self, df, title="", subtitle="", save_path=None, figsize=None):
         self._apply_theme_context()
         df, val_label = self._prepare_data(df)
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         cols = [c for c in numeric_cols if c != 'TIME_PERIOD']
@@ -448,7 +490,9 @@ class Visualizer:
         df_wide = df.pivot_table(index='TIME_PERIOD', columns='REF_AREA', values='OBS_VALUE', aggfunc='sum')
         df_wide = df_wide.fillna(0)
         
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         # Clean Palette for stack
         # FT uses muted colors for composition.
@@ -532,7 +576,9 @@ class Visualizer:
         
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='left')
 
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
+        actual_figsize = figsize or DEFAULT_FIGSIZE_MAP
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         # Base world map (light neutral background)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
@@ -632,7 +678,9 @@ class Visualizer:
         iso_world_col = 'ISO_A3' if 'ISO_A3' in world.columns else 'iso_a3'
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='inner')
         
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
+        actual_figsize = figsize or DEFAULT_FIGSIZE_MAP
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
         
         if not world_data.empty:
@@ -700,7 +748,9 @@ class Visualizer:
         iso_world_col = 'ISO_A3' if 'ISO_A3' in world.columns else 'iso_a3'
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='left')
         
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
+        actual_figsize = figsize or DEFAULT_FIGSIZE_MAP
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
         
         if not world_data.dropna(subset=[value_col]).empty:
@@ -789,7 +839,9 @@ class Visualizer:
         iso_world_col = 'ISO_A3' if 'ISO_A3' in world.columns else 'iso_a3'
         world_data = world.merge(df_map, left_on=iso_world_col, right_on=merge_col, how='left')
         
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE_MAP)
+        actual_figsize = figsize or DEFAULT_FIGSIZE_MAP
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         world.plot(ax=ax, color='#F6F6F6', edgecolor='#E0E0E0', linewidth=0.3)
         
         if not world_data.dropna(subset=[value_col]).empty:
@@ -894,7 +946,9 @@ class Visualizer:
             # Handle duplicates
             df_pivot = df.pivot_table(index='TIME_PERIOD', columns='REF_AREA', values='OBS_VALUE', aggfunc='mean')
 
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         df_pivot.plot(kind='bar', stacked=True, ax=ax, width=0.8, color=FT_PALETTE, edgecolor='white', linewidth=0.5)
         
@@ -923,7 +977,9 @@ class Visualizer:
         except ValueError:
             df_pivot = df.pivot_table(index='TIME_PERIOD', columns='REF_AREA', values='OBS_VALUE', aggfunc='mean')
 
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         df_pivot.plot(kind='area', stacked=True, ax=ax, alpha=0.9, color=FT_PALETTE, linewidth=0)
         
@@ -956,7 +1012,9 @@ class Visualizer:
         top_entities = df[df['TIME_PERIOD'] == latest_year].nsmallest(top_n, 'Rank')['REF_AREA'].unique()
         df_filtered = df[df['REF_AREA'].isin(top_entities)]
 
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         # Invert Y axis for Rank 1 at top
         ax.invert_yaxis()
@@ -990,7 +1048,9 @@ class Visualizer:
         else:
             return
 
-        fig, ax = plt.subplots(figsize=figsize or (6, 6))
+        actual_figsize = figsize or (6, 6)
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         
         colors = [FT_BLUE, FT_GREEN, FT_MUSTARD, FT_RED, FT_PURPLE, FT_NEUTRAL_DARK, FT_NEUTRAL_LIGHT]
         
@@ -1065,7 +1125,9 @@ class Visualizer:
 
         rects = recursive_split(normed, 0, 0, 100, 100)
         
-        fig, ax = plt.subplots(figsize=figsize or DEFAULT_FIGSIZE)
+        actual_figsize = figsize or DEFAULT_FIGSIZE
+        self._current_figsize = actual_figsize
+        fig, ax = plt.subplots(figsize=actual_figsize)
         ax.set_xlim(0, 100)
         ax.set_ylim(0, 100)
         ax.set_axis_off()
