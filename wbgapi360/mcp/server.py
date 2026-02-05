@@ -14,7 +14,8 @@ from fastmcp import FastMCP
 from wbgapi360.core.client import Data360Client
 from wbgapi360.data.builder import DataBuilder
 from wbgapi360.search.engine import SearchEngine
-from wbgapi360.visual.charts import Visualizer
+from wbgapi360.search.engine import SearchEngine
+# from wbgapi360.visual.charts import Visualizer # LAZY LOADED
 
 # Setup logger
 logger = logging.getLogger("wbgapi360.server")
@@ -25,7 +26,9 @@ mcp = FastMCP("wbgapi360-agent")
 _client_instance: Optional[Data360Client] = None
 _search_engine_instance: Optional[SearchEngine] = None
 
-viz = Visualizer()  # Single instance for visualization is safe as it's synchronous
+_search_engine_instance: Optional[SearchEngine] = None
+
+# viz = Visualizer()  # LAZY LOADED
 
 def _get_client() -> Data360Client:
     """Lazy initialize the Data360Client."""
@@ -41,6 +44,23 @@ def _get_search_engine() -> SearchEngine:
         client = _get_client()
         _search_engine_instance = SearchEngine(client)
     return _search_engine_instance
+
+# Helper for lazy loading visualization
+_viz_instance = None
+def _get_viz():
+    global _viz_instance
+    if _viz_instance is None:
+        try:
+            from wbgapi360.visual.charts import Visualizer
+            _viz_instance = Visualizer()
+        except ImportError as e:
+            if "seaborn" in str(e) or "matplotlib" in str(e):
+                raise ImportError(
+                    "Optional dependency 'seaborn' not found. "
+                    "Please install with: pip install wbgapi360[visual]"
+                ) from e
+            raise e
+    return _viz_instance
 
 # --- RAW IMPLEMENTATIONS (Core Functions) ---
 
@@ -387,6 +407,7 @@ def _plot_chart(chart_type: str, data: Union[str, pd.DataFrame], title: str = "C
         os.close(fd)
 
         # 3. Dispatcher Logic (Clean Architecture)
+        viz = _get_viz()
         dispatch_table = {
             'trend': viz.plot_trend,
             'line': viz.plot_trend,

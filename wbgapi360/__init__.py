@@ -50,7 +50,7 @@ class API:
         if self._client:
             await self._client.close()
 
-__version__ = "0.2.2"
+__version__ = "0.2.4"
 __author__ = "Maykol Medrano"
 __email__ = "mmedrano2@uc.cl"
 __credits__ = ["Applied Economist Policy Data Scientist"]

@@ -278,6 +278,13 @@ def plot(chart_type: str, data: Union[str, pd.DataFrame], title: str = "", subti
     # Execute the plot function with all kwargs
     func(data, title=title, subtitle=subtitle, save_path=path, **kwargs)
     
+    # Auto-display in Notebooks (Colab/Jupyter)
+    try:
+        from IPython.display import Image, display
+        display(Image(filename=path))
+    except (ImportError, Exception):
+        pass
+
     return path
 
 
