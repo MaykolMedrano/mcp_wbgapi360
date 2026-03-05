@@ -27,7 +27,8 @@ dependencies = [
 ]
 
 [project.scripts]
-wbgapi360 = "wbgapi360.cli:main"
+wbgapi360 = "wbgapi360.mcp.run:main"
+wbgapi360-cli = "wbgapi360.cli:main"
 
 [project.optional-dependencies]
 visual = ["matplotlib>=3.4.0", "seaborn>=0.11.0"]

@@ -4,10 +4,11 @@
   
 **World Bank Data API client with two interfaces: A synchronous Python API for analysts, and a Model Context Protocol (MCP) server for AI agents.**
 
-[![PyPI version](https://img.shields.io/pypi/v/wbgapi360.svg)](https://pypi.org/project/wbgapi360/)
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/MaykolMedrano/mcp_wbgapi360/actions/workflows/ci.yml/badge.svg)](https://github.com/MaykolMedrano/mcp_wbgapi360/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/wbgapi360.svg?style=flat-square&color=blue)](https://pypi.org/project/wbgapi360/)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg?style=flat-square)](https://www.python.org/downloads/)
+[![CI](https://img.shields.io/github/actions/workflow/status/MaykolMedrano/mcp_wbgapi360/ci.yml?branch=master&style=flat-square)](https://github.com/MaykolMedrano/mcp_wbgapi360/actions/workflows/ci.yml)
+[![Downloads](https://img.shields.io/pypi/dm/wbgapi360?style=flat-square&color=blue)](https://pypi.org/project/wbgapi360/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
   
 </div>
 

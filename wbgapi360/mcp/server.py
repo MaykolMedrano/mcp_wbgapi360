@@ -1,5 +1,4 @@
 from typing import List, Dict, Any, Optional, Union
-import asyncio
 import pandas as pd
 import tempfile
 import os
@@ -14,7 +13,6 @@ from fastmcp import FastMCP
 from wbgapi360.core.client import Data360Client
 from wbgapi360.data.builder import DataBuilder
 from wbgapi360.search.engine import SearchEngine
-from wbgapi360.search.engine import SearchEngine
 # from wbgapi360.visual.charts import Visualizer # LAZY LOADED
 
 # Setup logger
@@ -24,7 +22,6 @@ logger = logging.getLogger("wbgapi360.server")
 mcp = FastMCP("wbgapi360-agent")
 # Lazy Singletons
 _client_instance: Optional[Data360Client] = None
-_search_engine_instance: Optional[SearchEngine] = None
 
 _search_engine_instance: Optional[SearchEngine] = None
 
@@ -139,7 +136,7 @@ async def _get_data(
 
     try:
         # Pivot=True es clave para scatter plots y para tener años como columnas
-        df = await b.to_dataframe(pivot=True)
+        df = await b.to_dataframe(pivot=True, labels=labels)
         
         if df.empty:
             return pd.DataFrame() if as_frame else "No data found for the specified parameters."
@@ -157,7 +154,11 @@ async def _get_data(
         if as_frame:
             return df.reset_index()
 
-        return df.reset_index().to_json(orient='records')
+        # Convert to JSON
+        # Fix: World Bank API may return NaN, which is invalid JSON.
+        # We replace NaN with null to ensure compatibility.
+        json_str = df.reset_index().to_json(orient='records')
+        return json_str.replace('NaN', 'null')
 
     except HTTPStatusError as e:
         return f"API Error {e.response.status_code}: {str(e)}"

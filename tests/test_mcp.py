@@ -1,7 +1,15 @@
 
 import pytest
 import asyncio
-from wbgapi360.mcp.server import _search_indicators, _get_data, _analyze_trend 
+import json
+from wbgapi360.mcp.server import (
+    _search_indicators,
+    _get_data,
+    _analyze_trend,
+    _compare_countries,
+    _rank_countries,
+    mcp,
+)
 
 import wbgapi360.mcp.server as server
 
@@ -43,3 +51,50 @@ async def test_analyze_trend():
     # We might not get stats if data is missing, so check for basic structure
     assert "data" in trend_json
     assert "meta" in trend_json
+
+@pytest.mark.asyncio
+async def test_compare_countries():
+    await reset_state()
+    result = await _compare_countries(
+        economies=["CHL", "PER"],
+        indicators="NY.GDP.PCAP.CD",
+        years=5
+    )
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert "data" in parsed
+    assert isinstance(parsed["data"], list)
+    assert len(parsed["data"]) > 0
+
+@pytest.mark.asyncio
+async def test_rank_countries():
+    await reset_state()
+    result = await _rank_countries(
+        indicator="SP.POP.TOTL",
+        region="latam",
+        top_n=5
+    )
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert "ranking" in parsed
+    assert isinstance(parsed["ranking"], list)
+    assert len(parsed["ranking"]) > 0
+    assert len(parsed["ranking"]) <= 5
+    assert {"rank", "economy", "value"}.issubset(parsed["ranking"][0].keys())
+
+@pytest.mark.asyncio
+async def test_mcp_registry():
+    tools = await mcp._tool_manager.get_tools()
+    prompts = await mcp._prompt_manager.get_prompts()
+
+    expected_tools = {
+        "search_indicators",
+        "get_data",
+        "plot_chart",
+        "compare_countries",
+        "analyze_trend",
+        "rank_countries",
+    }
+
+    assert expected_tools.issubset(set(tools.keys()))
+    assert "world_bank_analyst" in prompts
